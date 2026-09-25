@@ -1,3 +1,4 @@
+require("http").createServer((_, r) => r.end("Bot Active")).listen(process.env.PORT || 8080);
 const {
     default: makeWASocket,
     useMultiFileAuthState,
