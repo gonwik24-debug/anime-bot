@@ -839,3 +839,57 @@ async function startBot() {
 
 startBot();
 
+const animeCharacters = require('./characters');
+
+if (!global.guessGame) global.guessGame = {};
+if (!global.userPoints) global.userPoints = {};
+
+// أمر بدء الفعالية (.تخمين)
+if (text === '.تخمين' || text === '.انمي') {
+    if (global.guessGame[from]) {
+        return sock.sendMessage(from, { text: '⚠️ هناك مسابقة شغالة بالفعل في هذه المجموعة!' });
+    }
+
+    const item = animeCharacters[Math.floor(Math.random() * animeCharacters.length)];
+    global.guessGame[from] = {
+        item: item,
+        timer: setTimeout(() => {
+            if (global.guessGame[from]) {
+                sock.sendMessage(from, { text: `⏰ انتهى الوقت! الإجابة الصحيحة هي: *${item.name[0]}*` });
+                delete global.guessGame[from];
+            }
+        }, 30000)
+    };
+
+    await sock.sendMessage(from, {
+        image: { url: item.image },
+        caption: '🧩 *من هذه الشخصية؟*\n\n⏱️ لديك *30 ثانية* للإجابة!\n💰 الجائزة: *10 نقاط*'
+    });
+}
+
+// أمر معرفة النقاط (.نقاطي)
+if (text === '.نقاطي' || text === '.النقاط') {
+    const sender = msg.key.participant || msg.key.remoteJid;
+    const pts = global.userPoints[sender] || 0;
+    await sock.sendMessage(from, { text: `⭐ رصيدك الحالي هو: *${pts} نقطة*` });
+}
+
+// التحقق من الإجابات
+if (global.guessGame[from]) {
+    const game = global.guessGame[from];
+    const userAns = text.trim().toLowerCase();
+    const isCorrect = game.item.name.some(ans => userAns.includes(ans.toLowerCase()));
+
+    if (isCorrect) {
+        clearTimeout(game.timer);
+        delete global.guessGame[from];
+        
+        const sender = msg.key.participant || msg.key.remoteJid;
+        global.userPoints[sender] = (global.userPoints[sender] || 0) + 10;
+
+        await sock.sendMessage(from, {
+            text: `🎉 *إجابة صحيحة!*\n👤 الفائز: @${sender.split('@')[0]}\n⭐ كسبت *10 نقاط*! مجموع نقاطك الآن: *${global.userPoints[sender]}*`,
+            mentions: [sender]
+        });
+    }
+}
